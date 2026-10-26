@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>AwaisAgency — Admin Order Desk</title>
+<style>
+:root{color-scheme:dark;--bg:#080d18;--panel:#111a2b;--line:#263650;--text:#edf4ff;--muted:#9aabc5;--blue:#4f8cff;--green:#35d39a;--red:#ff6b7d}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#142648 0,transparent 55%),var(--bg);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}main{max-width:980px;margin:auto;padding:30px 16px 60px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}.brand{font-size:22px;font-weight:800;letter-spacing:-.5px}.brand span{color:var(--blue)}.pill{font-size:12px;color:var(--green);border:1px solid #245b50;padding:5px 9px;border-radius:99px}.intro{margin:0 0 22px;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{background:rgba(17,26,43,.94);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 12px 35px #0002}.wide{grid-column:1/-1}h1{font-size:clamp(25px,4vw,34px);margin:0 0 8px}h2{font-size:18px;margin:0 0 16px}label{display:block;color:#c7d5eb;font-size:13px;margin:12px 0 6px}input{width:100%;background:#091222;border:1px solid #30415d;color:var(--text);padding:12px;border-radius:9px;outline:none}input:focus{border-color:var(--blue)}button{border:0;border-radius:9px;padding:11px 14px;background:var(--blue);color:white;font-weight:700;cursor:pointer;margin-top:14px}button.secondary{background:#24334c}button:disabled{opacity:.55;cursor:wait}.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1}.note{font-size:12px;color:var(--muted);margin-top:10px}.status{white-space:pre-wrap;overflow-wrap:anywhere;background:#091222;border:1px solid var(--line);padding:12px;border-radius:9px;min-height:48px;color:#d7e4f8}.danger{color:var(--red)}.hidden{display:none!important}.result{margin-top:12px}.warning{border-left:3px solid #e5ad45;padding:10px 12px;background:#2a2418;color:#f7dfae;border-radius:5px;font-size:13px;margin-bottom:16px}footer{color:var(--muted);font-size:12px;text-align:center;margin-top:22px}@media(max-width:650px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.top{align-items:flex-start}}
+</style>
+</head>
+<body><main>
+<div class="top"><div class="brand">Awais<span>Agency</span> <small style="font-size:12px;color:#9aabc5;font-weight:500">/ ADMIN</small></div><span class="pill">Private order desk</span></div>
+<h1>Provider order desk</h1><p class="intro">Payment verify karne ke baad hi order provider ko bhejein.</p>
+<div class="warning">Security: is page ka URL public ho sakta hai. Admin password HTML mein save nahi hota, lekin strong password use karein. CORS akela security nahi hota; Worker par authentication aur validation zaroori hain.</div>
+<div class="grid">
+<section class="card wide"><h2>1. Connect to your Cloudflare Worker</h2>
+<label for="workerUrl">Worker URL</label><input id="workerUrl" type="url" placeholder="https://smm-proxy.your-subdomain.workers.dev" autocomplete="url">
+<label for="adminPassword">Admin password (ADMIN_PASSWORD)</label><input id="adminPassword" type="password" placeholder="Enter your Worker admin password" autocomplete="current-password">
+<button id="saveConnect" type="button">Use these details</button><p class="note">Worker URL is kept in this browser tab only. Password is not saved.</p><div id="connection" class="status result">Not connected yet.</div></section>
+<section class="card"><h2>2. Send approved order</h2>
+<label for="service">Provider service ID</label><input id="service" inputmode="numeric" placeholder="e.g. 2536" required>
+<label for="link">Customer profile / post link</label><input id="link" type="url" placeholder="https://..." required>
+<label for="quantity">Quantity</label><input id="quantity" inputmode="numeric" type="number" min="1" step="1" placeholder="e.g. 100" required>
+<button id="sendOrder" type="button">Send to Provider</button><div id="orderResult" class="status result">No order sent.</div></section>
+<section class="card"><h2>3. Check order status</h2>
+<label for="orderId">Provider order ID</label><input id="orderId" inputmode="numeric" placeholder="Enter returned order ID">
+<button id="checkStatus" type="button">Check status</button><div id="statusResult" class="status result">No status checked.</div></section>
+<section class="card wide"><h2>4. Check provider balance</h2><p class="note">This calls the provider balance endpoint through your Worker.</p><button id="checkBalance" type="button">Check balance</button><div id="balanceResult" class="status result">No balance checked.</div></section>
+</div><footer>AwaisAgency Admin · Keep this page and your Worker credentials secure.</footer></main>
+<script>
+// Enter the deployed Worker URL above. Do not put the provider API key in this file.
+const $=id=>document.getElementById(id);let workerUrl='';
+function show(id,msg,isError=false){const el=$(id);el.textContent=msg;el.classList.toggle('danger',isError)}
+function getCredentials(){const url=$('workerUrl').value.trim().replace(/\/$/,'');const password=$('adminPassword').value;if(!/^https:\/\/[a-z0-9.-]+\.workers\.dev$/i.test(url)){throw new Error('Worker URL https://...workers.dev format mein enter karein.');}if(!password)throw new Error('Admin password enter karein.');workerUrl=url;return {url,password}}
+async function callWorker(action,extra={}){const c=getCredentials();const response=await fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin:c.password,action,...extra})});const raw=await response.text();let data;try{data=JSON.parse(raw)}catch{data=raw}if(!response.ok)throw new Error(typeof data==='string'?data:(data.error||JSON.stringify(data)));return data}
+function format(data){return typeof data==='string'?data:JSON.stringify(data,null,2)}
+$('saveConnect').addEventListener('click',()=>{try{getCredentials();show('connection','Details entered. Use Check balance to test the Worker.');}catch(e){show('connection',e.message,true)}});
+$('sendOrder').addEventListener('click',async()=>{const btn=$('sendOrder');try{const service=$('service').value.trim(),link=$('link').value.trim(),quantity=$('quantity').value.trim();if(!/^\d+$/.test(service)||Number(service)<=0)throw new Error('Valid numeric service ID enter karein.');if(!/^https?:\/\//i.test(link))throw new Error('Valid http/https customer link enter karein.');if(!/^\d+$/.test(quantity)||Number(quantity)<=0)throw new Error('Quantity positive whole number honi chahiye.');if(!confirm('Kya customer ki payment verify ho chuki hai? Confirm karne par provider ko order bheja jayega.'))return;btn.disabled=true;show('orderResult','Sending order…');const data=await callWorker('add',{service,link,quantity});show('orderResult',format(data));if(data&&data.order!==undefined)$('orderId').value=String(data.order);else if(data&&data.order_id!==undefined)$('orderId').value=String(data.order_id);}catch(e){show('orderResult',e.message,true)}finally{btn.disabled=false}});
+$('checkStatus').addEventListener('click',async()=>{try{const order=$('orderId').value.trim();if(!order)throw new Error('Provider order ID enter karein.');show('statusResult','Checking…');show('statusResult',format(await callWorker('status',{order})));}catch(e){show('statusResult',e.message,true)}});
+$('checkBalance').addEventListener('click',async()=>{try{show('balanceResult','Checking…');show('balanceResult',format(await callWorker('balance')));show('connection','Worker request completed.');}catch(e){show('balanceResult',e.message,true);show('connection','Request failed: '+e.message,true)}});
+</script></body></html>
