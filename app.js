@@ -34,7 +34,7 @@ function vOrder(){
  <label>Payment Method</label><select id="pm" onchange="payInfo()">${C.PAYMENTS.map((p,i)=>`<option value="${i}">${esc(p.name)}</option>`).join('')}</select>
  <div class="pay" id="pay"></div>
  <label>Transaction ID (payment karne ke baad)</label><input id="tid">
- <button onclick="submitOrder()">Place Order</button>
+ <button id="sb" onclick="submitOrder()">Place Order</button>
  <p class="info">Order WhatsApp par admin ko jayega. Payment verify hote hi order start ho jata hai.</p></div><div id="done"></div>`;
  fillSvc(pre);payInfo();pre=null}
 function fillSvc(id){
@@ -47,7 +47,7 @@ function calc(){const s=cur();if(!s)return;
 function payInfo(){const p=C.PAYMENTS[$('#pm').value];
  $('#pay').innerHTML=`Send payment to <b>${esc(p.name)}</b>: <b>${esc(p.acc)}</b><br>Title: ${esc(p.title)}`}
 
-function submitOrder(){
+async function submitOrder(){
  const s=cur(),q=+$('#qty').value,link=$('#link').value.trim(),name=$('#nm').value.trim(),
  ph=$('#ph').value.trim(),m=C.PAYMENTS[$('#pm').value],tid=$('#tid').value.trim();
  if(!/^https?:\/\//i.test(link))return toast('Valid link do (https://...)');
@@ -56,12 +56,18 @@ function submitOrder(){
  if(!tid)return toast('Payment ki Transaction ID do');
  const o={id:'PK'+Date.now().toString(36).toUpperCase(),date:new Date().toLocaleString(),name,phone:ph,sid:s.id,
  service:s.name,link,qty:q,charge:+(q/1000*s.rate).toFixed(2),method:m.name,tid,status:'Pending'};
+ const btn=$('#sb');btn.disabled=true;btn.textContent='Sending...';
+ if(C.WORKER_URL){
+  try{const r=await fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',order:o})});
+   const d=await r.json();if(!d.id)throw 0;o.id=d.id}
+  catch(e){btn.disabled=false;btn.textContent='Place Order';return toast('Order send nahi hua, dobara try karo')}
+ }
  const all=getOrders();all.unshift(o);localStorage.setItem('orders',JSON.stringify(all));
- if(C.WEBHOOK_URL)fetch(C.WEBHOOK_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(o)}).catch(()=>{});
- const url=waLink(o);window.open(url,'_blank');
+ btn.disabled=false;btn.textContent='Place Order';
+ const url=waLink(o);
  $('#done').innerHTML=`<div class="card ok"><h2>Order Received - ${o.id}</h2>
- <p class="info">Agar WhatsApp khud nahi khula to neeche button dabao aur message send karo. Order isi se confirm hota hai.</p>
- <a class="btn wa" href="${url}" target="_blank" rel="noopener">Send Order on WhatsApp</a></div>`;
+ <p class="info">Payment verify hote hi order start ho jayega. Order ID sambhaal kar rakho. "My Orders" mein status dekh sakte ho.</p>
+ <a class="btn wa" href="${url}" target="_blank" rel="noopener">WhatsApp par bhi bhejo (optional)</a></div>`;
  $('#done').scrollIntoView({behavior:'smooth'})}
 function waLink(o){
  const t=`*New Order ${o.id}*\nName: ${o.name}\nPhone: ${o.phone}\nService ID: ${o.sid}\n${o.service}\nLink: ${o.link}\nQty: ${o.qty}\nTotal: ${rs(o.charge)}\nPayment: ${o.method}\nTID: ${o.tid}`;
@@ -79,11 +85,17 @@ function listSvc(){
  <td><button class="sm" onclick="pre=${s.id};location.hash='order';render()">Order</button></td></tr>`).join('')}
 
 /* ---- my orders (this browser only) ---- */
-function vTrack(){
+async function syncStatus(){
+ if(!C.WORKER_URL)return;const all=getOrders();let ch=0;
+ await Promise.all(all.filter(o=>!/Completed|Rejected|Cancel/i.test(o.status)).map(async o=>{
+  try{const d=await(await fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'track',id:o.id})})).json();
+  if(d.status&&d.status!=o.status){o.status=d.status;ch=1}}catch(e){}}));
+ if(ch){localStorage.setItem('orders',JSON.stringify(all));if(location.hash=='#track')vTrack(1)}}
+function vTrack(skip){
  $('#view').innerHTML=`<h2>My Orders</h2><div class="card wrap"><table><tr><th>ID</th><th>Date</th><th>Service</th><th>Qty</th><th>Total</th><th>Status</th><th></th></tr>
  ${getOrders().map(o=>`<tr><td>${o.id}</td><td>${o.date}</td><td>${esc(o.service)}</td><td>${fmt(o.qty)}</td><td>${rs(o.charge)}</td>
- <td class="Pending">${o.status}</td><td><a href="https://wa.me/${C.WHATSAPP}?text=${encodeURIComponent('Order status: '+o.id)}" target="_blank" rel="noopener">Status</a></td></tr>`).join('')||'<tr><td colspan=7>Abhi koi order nahi</td></tr>'}</table>
- <p class="info">Ye list sirf isi browser mein save hoti hai. Asli status admin WhatsApp par batata hai.</p></div>`}
+ <td class="${o.status=='Pending'?'Pending':''}">${esc(o.status)}</td><td><a href="https://wa.me/${C.WHATSAPP}?text=${encodeURIComponent('Order status: '+o.id)}" target="_blank" rel="noopener">Status</a></td></tr>`).join('')||'<tr><td colspan=7>Abhi koi order nahi</td></tr>'}</table>
+ <p class="info">Ye list sirf isi browser mein save hoti hai. Status khud update hota hai.</p></div>`;if(!skip)syncStatus()}
 
 /* ---- help ---- */
 function vHelp(){
