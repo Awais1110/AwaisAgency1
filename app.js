@@ -7,8 +7,8 @@ function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';se
 const SV=[];let cat0='';
 RAW.split('\n').forEach(l=>{l=l.trim();if(!l)return;
  if(l[0]=='#'){cat0=l.slice(1).trim();return}
- const f=l.split('|'),max=+f.pop(),min=+f.pop(),rate=+f.pop(),id=+f.shift();
- SV.push({id,cat:cat0,name:f.join('|').trim(),rate:+(rate*(1+C.MARGIN/100)).toFixed(4),min,max})});
+ const f=l.split('|'),avg=f.pop().trim(),max=+f.pop(),min=+f.pop(),rate=+f.pop(),id=+f.shift();
+ SV.push({id,cat:cat0,name:f.join('|').trim(),rate:+(rate*(1+C.MARGIN/100)).toFixed(4),min,max,avg})});
 const getOrders=()=>JSON.parse(localStorage.getItem('orders')||'[]');
 let pre=null;
 
@@ -42,7 +42,7 @@ function fillSvc(id){
  $('#svc').innerHTML=l.map(s=>`<option value="${s.id}" ${s.id==id?'selected':''}>${s.id} - ${esc(s.name)} - ${rs(s.rate)}/1000</option>`).join('');calc()}
 const cur=()=>SV.find(s=>s.id==$('#svc').value);
 function calc(){const s=cur();if(!s)return;
- $('#meta').textContent=`Rate: ${rs(s.rate)} per 1000 | Min: ${fmt(s.min)} | Max: ${fmt(s.max)}`;
+ $('#meta').textContent=`Rate: ${rs(s.rate)} per 1000 | Min: ${fmt(s.min)} | Max: ${fmt(s.max)} | Avg Time: ${s.avg}`;
  $('#chg').textContent='Total: '+rs((+$('#qty').value||0)/1000*s.rate)}
 function payInfo(){const p=C.PAYMENTS[$('#pm').value];
  $('#pay').innerHTML=`Send payment to <b>${esc(p.name)}</b>: <b>${esc(p.acc)}</b><br>Title: ${esc(p.title)}`}
@@ -79,9 +79,9 @@ function vServices(){
  <div class="wrap" style="margin-top:12px"><table id="st"></table></div></div>`;listSvc()}
 function listSvc(){
  const q=$('#q').value.toLowerCase();
- $('#st').innerHTML='<tr><th>ID</th><th>Service</th><th>Rate/1000</th><th>Min</th><th>Max</th><th></th></tr>'+
+ $('#st').innerHTML='<tr><th>ID</th><th>Service</th><th>Rate/1000</th><th>Min</th><th>Max</th><th>Avg Time</th><th></th></tr>'+
  SV.filter(s=>(s.name+s.cat+s.id).toLowerCase().includes(q)).map(s=>
- `<tr><td>${s.id}</td><td>${esc(s.name)}</td><td>${rs(s.rate)}</td><td>${fmt(s.min)}</td><td>${fmt(s.max)}</td>
+ `<tr><td>${s.id}</td><td>${esc(s.name)}</td><td>${rs(s.rate)}</td><td>${fmt(s.min)}</td><td>${fmt(s.max)}</td><td>${esc(s.avg)}</td>
  <td><button class="sm" onclick="pre=${s.id};location.hash='order';render()">Order</button></td></tr>`).join('')}
 
 /* ---- my orders (this browser only) ---- */
